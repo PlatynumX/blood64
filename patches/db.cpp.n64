@@ -343,7 +343,11 @@ int qinsertsprite(short nSector, short nStat) // Replace
 int DeleteSprite(int nSprite)
 {
 #ifdef POLYMER
+#if USE_POLYMOST && USE_OPENGL
     if (gPolymerLight[nSprite].lightptr != NULL && videoGetRenderMode() == REND_POLYMER)
+#else
+    if (0)
+#endif
         DeleteLight(nSprite);
 #endif
     if (sprite[nSprite].extra > 0)
@@ -775,7 +779,9 @@ int dbLoadMap(const char *pPath, int *pX, int *pY, int *pZ, short *pAngle, short
     memset(show2dsprite,0,sizeof(show2dsprite));
 //#ifndef __AMIGA__
 #ifndef __3DS__
+#if USE_POLYMOST && USE_OPENGL
     memset(spriteext,0,kMaxSprites*sizeof(spriteext_t));
+#endif
 #endif
 
     memset(xvel,0,sizeof(xvel));
