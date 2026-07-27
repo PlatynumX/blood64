@@ -174,6 +174,7 @@ void dbCrypt(char *pPtr, int nLength, int nKey)
 
 void DeleteLight(int32_t s)
 {
+#if USE_POLYMOST && USE_OPENGL
     if (gPolymerLight[s].lightId >= 0)
         polymer_deletelight(gPolymerLight[s].lightId);
     gPolymerLight[s].lightId = -1;
@@ -185,6 +186,7 @@ void DeleteLight(int32_t s)
 
 void InsertSpriteSect(int nSprite, int nSector)
 {
+#endif
     dassert(nSprite >= 0 && nSprite < kMaxSprites);
     dassert(nSector >= 0 && nSector < kMaxSectors);
     int nOther = headspritesect[nSector];
