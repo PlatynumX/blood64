@@ -1,12 +1,12 @@
-# Blood64 r16 — libdragon-native N64 build
+# Blood64 r22 — consolidated libdragon-native N64 build
 #
-# This Makefile intentionally follows libdragon's official application pattern:
+# Build graph follows libdragon's application model:
 #   all -> .z64 -> build/*.elf -> objects
 #
-# libdragon's n64.mk assigns CC/CXX and VR4300/o64 flags target-specifically to
-# the entire dependency chain of a .z64 target. Do not bypass that chain.
+# The source delta is consolidated under overrides/. stage-engine.sh does not
+# mutate the pinned upstream checkout.
 
-PROG_NAME := blood64-r16
+PROG_NAME := blood64-r22
 BUILD_DIR := build-engine
 SOURCE_DIR := .
 ENGINE := engine
@@ -20,7 +20,6 @@ endif
 
 include $(N64_INST)/include/n64.mk
 
-# n64.mk's stock .c/.cpp recipes pass CFLAGS/CXXFLAGS, not CPPFLAGS.
 BLOOD64_INCLUDES := \
 	-In64 \
 	-I$(ENGINE)/jfbuild/include \
@@ -49,8 +48,6 @@ JFBUILD_C_FILES := $(addprefix $(ENGINE)/jfbuild/src/,$(addsuffix .c,$(JFBUILD_C
 BLOOD_CPP_FILES := $(addprefix $(ENGINE)/blood/src/,$(addsuffix .cpp,$(BLOOD_CPP_NAMES)))
 N64_C_FILES := n64/platform_n64.c
 
-# Preserve each source's path below BUILD_DIR. This allows the unmodified pattern
-# rules in n64.mk to compile them via SOURCE_DIR=.
 JFBUILD_OBJS := $(addprefix $(BUILD_DIR)/,$(JFBUILD_C_FILES:.c=.o))
 BLOOD_OBJS := $(addprefix $(BUILD_DIR)/,$(BLOOD_CPP_FILES:.cpp=.o))
 N64_OBJS := $(addprefix $(BUILD_DIR)/,$(N64_C_FILES:.c=.o))
@@ -59,17 +56,14 @@ OBJS := $(JFBUILD_OBJS) $(BLOOD_OBJS) $(N64_OBJS)
 all: $(PROG_NAME).z64
 .PHONY: all
 
-# Exactly like libdragon's official example: the ELF depends on application
-# objects; n64.mk supplies the linker rule and libraries.
 $(BUILD_DIR)/$(PROG_NAME).elf: $(OBJS)
 
-$(PROG_NAME).z64: N64_ROM_TITLE = "Blood64 r16"
+$(PROG_NAME).z64: N64_ROM_TITLE = "Blood64 r22"
 $(PROG_NAME).z64: N64_ROM_CONTROLLER1 = joypad
-$(PROG_NAME).z64: toolchain-check endian-check engine-check
+$(PROG_NAME).z64: toolchain-check endian-check cxx-compat-check engine-check
 
-# These checks are prerequisites OF THE ROM. Therefore libdragon's target-specific
-# CC/CXX/CFLAGS/CXXFLAGS from %.z64 are inherited here too.
-.PHONY: toolchain-check endian-check engine-check
+.PHONY: toolchain-check endian-check cxx-compat-check engine-check
+
 toolchain-check:
 	@echo "N64_INST=$(N64_INST)"
 	@echo "N64_CC=$(N64_CC)"
@@ -92,7 +86,6 @@ toolchain-check:
 		echo "ERROR: CXXFLAGS missing -mabi=o64"; exit 1; }
 	@echo "N64 TOOLCHAIN CHECK PASSED"
 
-
 endian-check:
 	@mkdir -p $(BUILD_DIR)
 	@echo "Checking actual N64 compiler endian macros..."
@@ -106,24 +99,34 @@ endian-check:
 		'int blood64_endian_probe(void) { return 0; }' | \
 		$(CC) $(CFLAGS) -x c -c -o $(BUILD_DIR)/blood64-endian-probe.o -
 	@echo "N64 BIG-ENDIAN PROBE PASSED"
-	@echo "Relevant predefined macros:"
-	@printf '' | $(CC) $(CFLAGS) -dM -E -x c - | \
-		grep -E '^#define (__BYTE_ORDER__|__ORDER_(BIG|LITTLE)_ENDIAN__|__MIPSEB__|__MIPSEL__)' | sort
+
+cxx-compat-check:
+	@mkdir -p $(BUILD_DIR)
+	@echo "Checking JFBuild compatibility header against libstdc++..."
+	@printf '%s\n' \
+		'#include "compat.h"' \
+		'#include <limits>' \
+		'#include <cmath>' \
+		'int blood64_cxx_probe(void) {' \
+		' int a=min(1,2); int b=max(1,2);' \
+		' int c=std::numeric_limits<int>::min();' \
+		' int d=std::numeric_limits<int>::max();' \
+		' return a+b+(c==d); }' | \
+		$(CXX) $(CXXFLAGS) -x c++ -c -o $(BUILD_DIR)/blood64-cxx-compat-probe.o -
+	@echo "N64 C++ COMPAT PROBE PASSED"
 
 engine-check:
-	@test -f $(ENGINE)/jfbuild/src/engine.c || { \
-		echo "ERROR: staged JFBuild engine.c missing"; exit 1; }
-	@test -f $(ENGINE)/blood/src/player.cpp || { \
-		echo "ERROR: staged Blood player.cpp missing"; exit 1; }
-	@test -f $(ENGINE)/blood/src/weapon.cpp || { \
-		echo "ERROR: staged Blood weapon.cpp missing"; exit 1; }
+	@test -f $(ENGINE)/jfbuild/src/engine.c || { echo "ERROR: staged JFBuild engine.c missing"; exit 1; }
+	@test -f $(ENGINE)/blood/src/player.cpp || { echo "ERROR: staged Blood player.cpp missing"; exit 1; }
+	@test -f $(ENGINE)/blood/src/weapon.cpp || { echo "ERROR: staged Blood weapon.cpp missing"; exit 1; }
+	@cmp -s overrides/jfbuild/include/compat.h $(ENGINE)/jfbuild/include/compat.h || { \
+		echo "ERROR: staged compat.h does not match consolidated override"; exit 1; }
 	@echo "ENGINE SOURCE CHECK PASSED"
 
 clean:
 	$(RM) -r $(BUILD_DIR) $(PROG_NAME).z64
 .PHONY: clean
 
-# Same dependency-file strategy used by the official libdragon example.
 ifneq ($(wildcard $(BUILD_DIR)),)
   -include $(shell find $(BUILD_DIR) -name '*.d')
 endif
