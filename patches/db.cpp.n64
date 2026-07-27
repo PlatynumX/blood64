@@ -24,7 +24,9 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "editor.h"
 #ifdef POLYMER
 #if USE_POLYMOST && USE_OPENGL
+#if USE_POLYMOST && USE_OPENGL
 #include "polymer.h"
+#endif
 #endif
 #endif
 #include "compat.h"
@@ -175,13 +177,13 @@ void dbCrypt(char *pPtr, int nLength, int nKey)
 void DeleteLight(int32_t s)
 {
 #if USE_POLYMOST && USE_OPENGL
-    if (gPolymerLight[s].lightId >= 0)
-#if USE_POLYMOST && USE_OPENGL
+    if (gPolymerLight[s].lightptr != NULL)
+    {
         polymer_deletelight(gPolymerLight[s].lightId);
-#endif
-    gPolymerLight[s].lightId = -1;
-#if USE_POLYMOST && USE_OPENGL
-    gPolymerLight[s].lightptr = NULL;
+        gPolymerLight[s].lightptr = NULL;
+    }
+#else
+    (void)s;
 #endif
 }
 
@@ -190,7 +192,6 @@ void DeleteLight(int32_t s)
 
 void InsertSpriteSect(int nSprite, int nSector)
 {
-#endif
     dassert(nSprite >= 0 && nSprite < kMaxSprites);
     dassert(nSector >= 0 && nSector < kMaxSectors);
     int nOther = headspritesect[nSector];
@@ -342,11 +343,7 @@ int qinsertsprite(short nSector, short nStat) // Replace
 int DeleteSprite(int nSprite)
 {
 #ifdef POLYMER
-    #if USE_POLYMOST && USE_OPENGL
-
     if (gPolymerLight[nSprite].lightptr != NULL && videoGetRenderMode() == REND_POLYMER)
-
-    #endif
         DeleteLight(nSprite);
 #endif
     if (sprite[nSprite].extra > 0)
@@ -778,9 +775,7 @@ int dbLoadMap(const char *pPath, int *pX, int *pY, int *pZ, short *pAngle, short
     memset(show2dsprite,0,sizeof(show2dsprite));
 //#ifndef __AMIGA__
 #ifndef __3DS__
-#if USE_POLYMOST && USE_OPENGL
-    memset(spriteext, 0, kMaxSprites * sizeof(spriteext_t));
-#endif
+    memset(spriteext,0,kMaxSprites*sizeof(spriteext_t));
 #endif
 
     memset(xvel,0,sizeof(xvel));
@@ -1335,13 +1330,12 @@ int dbLoadMap(const char *pPath, int *pX, int *pY, int *pZ, short *pAngle, short
     }
 
 #ifdef POLYMER
-    #if USE_POLYMOST && USE_OPENGL
-
     if (videoGetRenderMode() == REND_POLYMER)
-
-        polymer_loadboard();
-
-    #endif
+        #if USE_POLYMOST && USE_OPENGL
+    #if USE_POLYMOST && USE_OPENGL
+    polymer_loadboard();
+#endif
+#endif
 #endif
 
     if ((header.version & 0xff00) == 0x600)
