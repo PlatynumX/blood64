@@ -23,7 +23,7 @@ JFBUILD_C := \
 BLOOD_CPP := \
 	actor ai aibat aibeast aiboneel aiburn aicaleb aicerber aicult aigarg aighost \
 	aigilbst aihand aihound aiinnoc aipod airat aispid aitchern aizomba aizombf \
-	asound blood callback choke common compat config db demo dude endgame eventq fire \
+	asound blood callback choke common compat db demo dude endgame eventq fire \
 	fx getopt gfx gib globals gui inifile iob levels loadsave map2d messages misc \
 	network palette player qav qheap sectorfx seq sfx sound trig triggers warp weapon \
 	controls credits gameutil menu mirrors osdcmd replace resource tile view version \
