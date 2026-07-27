@@ -53,3 +53,8 @@ JFBuild commit: $(git -C "$SRC/jfbuild" rev-parse HEAD)
 EOF
 
 echo "Actual JFBuild + Blood sources staged under engine/"
+
+
+# Blood64 classic-renderer compatibility patches.
+cp "$ROOT/patches/db.h.n64" "$OUT/blood/src/db.h"
+cp "$ROOT/patches/actor.cpp.n64" "$OUT/blood/src/actor.cpp"
