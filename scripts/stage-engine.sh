@@ -16,7 +16,10 @@ cp -a "$SRC/jfbuild/include/." "$OUT/jfbuild/include/"
 
 # JFBuild keeps several private/internal headers beside its source files.
 # Stage all of them so the N64 build sees the same header set as upstream.
-find "$SRC/jfbuild" -type f -name '*.h' -exec cp -f {} "$OUT/jfbuild/include/" \;
+find "$SRC/jfbuild" -type f -name '*.h' \
+    ! -name 'stdint.h' \
+    ! -name 'inttypes.h' \
+    -exec cp -f {} "$OUT/jfbuild/include/" \;
 
 
 # JFBuild also keeps required internal/generated headers outside include/.
