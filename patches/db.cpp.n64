@@ -176,9 +176,13 @@ void DeleteLight(int32_t s)
 {
 #if USE_POLYMOST && USE_OPENGL
     if (gPolymerLight[s].lightId >= 0)
+#if USE_POLYMOST && USE_OPENGL
         polymer_deletelight(gPolymerLight[s].lightId);
+#endif
     gPolymerLight[s].lightId = -1;
+#if USE_POLYMOST && USE_OPENGL
     gPolymerLight[s].lightptr = NULL;
+#endif
 }
 
 #endif
