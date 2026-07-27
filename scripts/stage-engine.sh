@@ -5,6 +5,8 @@ SRC="$ROOT/vendor/jfblood"
 OUT="$ROOT/engine"
 
 [[ -d "$SRC/.git" ]] || "$ROOT/scripts/fetch-engine.sh"
+python3 "$ROOT/scripts/patch-defs.py" "$SRC/jfbuild/src/defs.c"
+
 rm -rf "$OUT"
 mkdir -p "$OUT/jfbuild/src" "$OUT/jfbuild/include" "$OUT/blood/src" "$OUT/blood/include"
 
