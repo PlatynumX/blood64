@@ -11,6 +11,9 @@ mkdir -p "$OUT/jfbuild/src" "$OUT/jfbuild/include" "$OUT/blood/src" "$OUT/blood/
 # Bring in the real JFBuild core/header tree. We exclude platform frontends/renderers
 # we are explicitly replacing on N64, not the engine itself.
 cp -a "$SRC/jfbuild/include/." "$OUT/jfbuild/include/"
+A_H="$(find "$SRC/jfbuild" -name a.h -print -quit)"
+test -n "$A_H" || { echo "ERROR: JFBuild a.h not found" >&2; exit 1; }
+cp "$A_H" "$OUT/jfbuild/include/a.h"
 for f in a-c.c asmprot.c cache1d.c compat.c crc32.c defs.c engine.c kplib.c osd.c \
          pragmas.c scriptfile.c textfont.c smalltextfont.c mmulti_null.c version.c; do
     cp "$SRC/jfbuild/src/$f" "$OUT/jfbuild/src/$f"
