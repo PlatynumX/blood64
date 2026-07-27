@@ -5,6 +5,23 @@ PROG_NAME := blood64-r3
 
 include $(N64_INST)/include/n64.mk
 
+# Blood64 must NEVER silently compile the engine with the host compiler.
+.PHONY: toolchain-check
+toolchain-check:
+	@echo "CC=$(CC)"
+	@echo "CXX=$(CXX)"
+	@echo "CC target: $$($(CC) -dumpmachine)"
+	@echo "CXX target: $$($(CXX) -dumpmachine)"
+	@case "$$($(CC) -dumpmachine)" in \
+		mips64-*|mips-* ) ;; \
+		*) echo "ERROR: CC is not an N64/MIPS compiler"; exit 1 ;; \
+	esac
+	@case "$$($(CXX) -dumpmachine)" in \
+		mips64-*|mips-* ) ;; \
+		*) echo "ERROR: CXX is not an N64/MIPS compiler"; exit 1 ;; \
+	esac
+
+
 CPPFLAGS += \
 	-In64 \
 	-I$(ENGINE)/jfbuild/include \
@@ -35,7 +52,7 @@ N64_OBJS := $(BUILD_DIR)/n64/platform_n64.o
 
 OBJS := $(JFBUILD_OBJS) $(BLOOD_OBJS) $(N64_OBJS)
 
-all: engine-check $(BUILD_DIR)/objects.stamp
+all: toolchain-check engine-check $(BUILD_DIR)/objects.stamp
 
 # r3's purpose is to force the real code through the N64 compiler and expose the
 # remaining platform/API deltas. A ROM link target is enabled once those symbols
