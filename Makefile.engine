@@ -65,11 +65,11 @@ $(BUILD_DIR)/$(PROG_NAME).elf: $(OBJS)
 
 $(PROG_NAME).z64: N64_ROM_TITLE = "Blood64 r16"
 $(PROG_NAME).z64: N64_ROM_CONTROLLER1 = joypad
-$(PROG_NAME).z64: toolchain-check engine-check
+$(PROG_NAME).z64: toolchain-check endian-check engine-check
 
 # These checks are prerequisites OF THE ROM. Therefore libdragon's target-specific
 # CC/CXX/CFLAGS/CXXFLAGS from %.z64 are inherited here too.
-.PHONY: toolchain-check engine-check
+.PHONY: toolchain-check endian-check engine-check
 toolchain-check:
 	@echo "N64_INST=$(N64_INST)"
 	@echo "N64_CC=$(N64_CC)"
@@ -91,6 +91,24 @@ toolchain-check:
 	@printf '%s\n' "$(CXXFLAGS)" | grep -q -- '-mabi=o64' || { \
 		echo "ERROR: CXXFLAGS missing -mabi=o64"; exit 1; }
 	@echo "N64 TOOLCHAIN CHECK PASSED"
+
+
+endian-check:
+	@mkdir -p $(BUILD_DIR)
+	@echo "Checking actual N64 compiler endian macros..."
+	@printf '%s\n' \
+		'#if !defined(__BYTE_ORDER__) || !defined(__ORDER_BIG_ENDIAN__)' \
+		'#error GCC endian macros missing' \
+		'#endif' \
+		'#if __BYTE_ORDER__ != __ORDER_BIG_ENDIAN__' \
+		'#error N64 compiler is not big-endian' \
+		'#endif' \
+		'int blood64_endian_probe(void) { return 0; }' | \
+		$(CC) $(CFLAGS) -x c -c -o $(BUILD_DIR)/blood64-endian-probe.o -
+	@echo "N64 BIG-ENDIAN PROBE PASSED"
+	@echo "Relevant predefined macros:"
+	@printf '' | $(CC) $(CFLAGS) -dM -E -x c - | \
+		grep -E '^#define (__BYTE_ORDER__|__ORDER_(BIG|LITTLE)_ENDIAN__|__MIPSEB__|__MIPSEL__)' | sort
 
 engine-check:
 	@test -f $(ENGINE)/jfbuild/src/engine.c || { \
