@@ -5,9 +5,20 @@ PROG_NAME := blood64-r3
 
 include $(N64_INST)/include/n64.mk
 
+# Force the libdragon cross compiler. GNU make otherwise supplies
+# built-in CC=cc / CXX=g++, which silently invokes the Linux host compiler.
+CC := $(N64_TOOLCHAIN)/bin/mips64-elf-gcc
+CXX := $(N64_TOOLCHAIN)/bin/mips64-elf-g++
+AR := $(N64_TOOLCHAIN)/bin/mips64-elf-ar
+LD := $(N64_TOOLCHAIN)/bin/mips64-elf-ld
+OBJCOPY := $(N64_TOOLCHAIN)/bin/mips64-elf-objcopy
+
+
 # Blood64 must NEVER silently compile the engine with the host compiler.
 .PHONY: toolchain-check
 toolchain-check:
+	@echo "N64_INST=$(N64_INST)"
+	@echo "N64_TOOLCHAIN=$(N64_TOOLCHAIN)"
 	@echo "CC=$(CC)"
 	@echo "CXX=$(CXX)"
 	@echo "CC target: $$($(CC) -dumpmachine)"
