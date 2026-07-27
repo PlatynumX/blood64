@@ -1,39 +1,27 @@
-V ?= 0
+# Blood64 r16 — libdragon-native N64 build
+#
+# This Makefile intentionally follows libdragon's official application pattern:
+#   all -> .z64 -> build/*.elf -> objects
+#
+# libdragon's n64.mk assigns CC/CXX and VR4300/o64 flags target-specifically to
+# the entire dependency chain of a .z64 target. Do not bypass that chain.
+
+PROG_NAME := blood64-r16
 BUILD_DIR := build-engine
+SOURCE_DIR := .
 ENGINE := engine
-PROG_NAME := blood64-r3
+
+ifeq ($(N64_INST),)
+  $(error N64_INST is not set)
+endif
+ifeq ($(wildcard $(N64_INST)/include/n64.mk),)
+  $(error $(N64_INST)/include/n64.mk does not exist: N64_INST may be incorrect)
+endif
 
 include $(N64_INST)/include/n64.mk
 
-# Force the libdragon cross compiler. GNU make otherwise supplies
-# built-in CC=cc / CXX=g++, which silently invokes the Linux host compiler.
-CC := $(N64_TOOLCHAIN)/bin/mips64-elf-gcc
-CXX := $(N64_TOOLCHAIN)/bin/mips64-elf-g++
-AR := $(N64_TOOLCHAIN)/bin/mips64-elf-ar
-LD := $(N64_TOOLCHAIN)/bin/mips64-elf-ld
-OBJCOPY := $(N64_TOOLCHAIN)/bin/mips64-elf-objcopy
-
-
-# Blood64 must NEVER silently compile the engine with the host compiler.
-.PHONY: toolchain-check
-toolchain-check:
-	@echo "N64_INST=$(N64_INST)"
-	@echo "N64_TOOLCHAIN=$(N64_TOOLCHAIN)"
-	@echo "CC=$(CC)"
-	@echo "CXX=$(CXX)"
-	@echo "CC target: $$($(CC) -dumpmachine)"
-	@echo "CXX target: $$($(CXX) -dumpmachine)"
-	@case "$$($(CC) -dumpmachine)" in \
-		mips64-*|mips-* ) ;; \
-		*) echo "ERROR: CC is not an N64/MIPS compiler"; exit 1 ;; \
-	esac
-	@case "$$($(CXX) -dumpmachine)" in \
-		mips64-*|mips-* ) ;; \
-		*) echo "ERROR: CXX is not an N64/MIPS compiler"; exit 1 ;; \
-	esac
-
-
-CPPFLAGS += \
+# n64.mk's stock .c/.cpp recipes pass CFLAGS/CXXFLAGS, not CPPFLAGS.
+BLOOD64_INCLUDES := \
 	-In64 \
 	-I$(ENGINE)/jfbuild/include \
 	-I$(ENGINE)/blood/src \
@@ -41,14 +29,14 @@ CPPFLAGS += \
 	-I$(ENGINE)/jfaudiolib/include \
 	-include n64/blood64_config.h
 
-CFLAGS += -O2 -Wall -Wextra -fno-strict-aliasing -ffast-math
-CXXFLAGS += $(CFLAGS) -std=gnu++11 -fno-exceptions -fno-rtti -fpermissive
+CFLAGS += $(BLOOD64_INCLUDES) -fno-strict-aliasing
+CXXFLAGS += $(BLOOD64_INCLUDES) -fno-strict-aliasing -fno-exceptions -fno-rtti -fpermissive
 
-JFBUILD_C := \
+JFBUILD_C_NAMES := \
 	a-c asmprot cache1d compat crc32 defs engine kplib osd pragmas \
 	scriptfile textfont smalltextfont mmulti_null version
 
-BLOOD_CPP := \
+BLOOD_CPP_NAMES := \
 	actor ai aibat aibeast aiboneel aiburn aicaleb aicerber aicult aigarg aighost \
 	aigilbst aihand aihound aiinnoc aipod airat aispid aitchern aizomba aizombf \
 	asound blood callback choke common compat db demo dude endgame eventq fire \
@@ -57,43 +45,67 @@ BLOOD_CPP := \
 	controls credits gameutil menu mirrors osdcmd replace resource tile view version \
 	gamemenu screen
 
-JFBUILD_OBJS := $(addprefix $(BUILD_DIR)/jfbuild/,$(addsuffix .o,$(JFBUILD_C)))
-BLOOD_OBJS := $(addprefix $(BUILD_DIR)/blood/,$(addsuffix .o,$(BLOOD_CPP)))
-N64_OBJS := $(BUILD_DIR)/n64/platform_n64.o
+JFBUILD_C_FILES := $(addprefix $(ENGINE)/jfbuild/src/,$(addsuffix .c,$(JFBUILD_C_NAMES)))
+BLOOD_CPP_FILES := $(addprefix $(ENGINE)/blood/src/,$(addsuffix .cpp,$(BLOOD_CPP_NAMES)))
+N64_C_FILES := n64/platform_n64.c
 
+# Preserve each source's path below BUILD_DIR. This allows the unmodified pattern
+# rules in n64.mk to compile them via SOURCE_DIR=.
+JFBUILD_OBJS := $(addprefix $(BUILD_DIR)/,$(JFBUILD_C_FILES:.c=.o))
+BLOOD_OBJS := $(addprefix $(BUILD_DIR)/,$(BLOOD_CPP_FILES:.cpp=.o))
+N64_OBJS := $(addprefix $(BUILD_DIR)/,$(N64_C_FILES:.c=.o))
 OBJS := $(JFBUILD_OBJS) $(BLOOD_OBJS) $(N64_OBJS)
 
-all: toolchain-check engine-check $(BUILD_DIR)/objects.stamp
+all: $(PROG_NAME).z64
+.PHONY: all
 
-# r3's purpose is to force the real code through the N64 compiler and expose the
-# remaining platform/API deltas. A ROM link target is enabled once those symbols
-# are closed instead of hiding them behind fake stubs.
+# Exactly like libdragon's official example: the ELF depends on application
+# objects; n64.mk supplies the linker rule and libraries.
+$(BUILD_DIR)/$(PROG_NAME).elf: $(OBJS)
+
+$(PROG_NAME).z64: N64_ROM_TITLE = "Blood64 r16"
+$(PROG_NAME).z64: N64_ROM_CONTROLLER1 = joypad
+$(PROG_NAME).z64: toolchain-check engine-check
+
+# These checks are prerequisites OF THE ROM. Therefore libdragon's target-specific
+# CC/CXX/CFLAGS/CXXFLAGS from %.z64 are inherited here too.
+.PHONY: toolchain-check engine-check
+toolchain-check:
+	@echo "N64_INST=$(N64_INST)"
+	@echo "N64_CC=$(N64_CC)"
+	@echo "N64_CXX=$(N64_CXX)"
+	@echo "effective CC=$(CC)"
+	@echo "effective CXX=$(CXX)"
+	@echo "CC target: $$($(CC) -dumpmachine)"
+	@echo "CXX target: $$($(CXX) -dumpmachine)"
+	@test "$$($(CC) -dumpmachine)" = "mips64-elf" || { \
+		echo "ERROR: effective CC is not mips64-elf"; exit 1; }
+	@test "$$($(CXX) -dumpmachine)" = "mips64-elf" || { \
+		echo "ERROR: effective CXX is not mips64-elf"; exit 1; }
+	@printf '%s\n' "$(CFLAGS)" | grep -q -- '-march=vr4300' || { \
+		echo "ERROR: CFLAGS missing -march=vr4300"; exit 1; }
+	@printf '%s\n' "$(CFLAGS)" | grep -q -- '-mabi=o64' || { \
+		echo "ERROR: CFLAGS missing -mabi=o64"; exit 1; }
+	@printf '%s\n' "$(CXXFLAGS)" | grep -q -- '-march=vr4300' || { \
+		echo "ERROR: CXXFLAGS missing -march=vr4300"; exit 1; }
+	@printf '%s\n' "$(CXXFLAGS)" | grep -q -- '-mabi=o64' || { \
+		echo "ERROR: CXXFLAGS missing -mabi=o64"; exit 1; }
+	@echo "N64 TOOLCHAIN CHECK PASSED"
+
 engine-check:
 	@test -f $(ENGINE)/jfbuild/src/engine.c || { \
-	  echo "Run ./scripts/fetch-engine.sh && ./scripts/stage-engine.sh first"; exit 1; }
-	@test -f $(ENGINE)/blood/src/player.cpp
-	@echo "Real JFBuild + Blood source present."
-
-$(BUILD_DIR)/jfbuild/%.o: $(ENGINE)/jfbuild/src/%.c
-	@mkdir -p $(dir $@)
-	$(CC) $(CPPFLAGS) $(CFLAGS) -MMD -MP -c -o $@ $<
-
-$(BUILD_DIR)/blood/%.o: $(ENGINE)/blood/src/%.cpp
-	@mkdir -p $(dir $@)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -MMD -MP -c -o $@ $<
-
-$(BUILD_DIR)/n64/%.o: n64/%.c
-	@mkdir -p $(dir $@)
-	$(CC) $(CPPFLAGS) $(CFLAGS) -MMD -MP -c -o $@ $<
-
-$(BUILD_DIR)/objects.stamp: $(OBJS)
-	@mkdir -p $(dir $@)
-	@touch $@
-	@echo "All selected JFBuild/Blood units compiled for N64."
-
--include $(OBJS:.o=.d)
+		echo "ERROR: staged JFBuild engine.c missing"; exit 1; }
+	@test -f $(ENGINE)/blood/src/player.cpp || { \
+		echo "ERROR: staged Blood player.cpp missing"; exit 1; }
+	@test -f $(ENGINE)/blood/src/weapon.cpp || { \
+		echo "ERROR: staged Blood weapon.cpp missing"; exit 1; }
+	@echo "ENGINE SOURCE CHECK PASSED"
 
 clean:
-	rm -rf $(BUILD_DIR)
+	$(RM) -r $(BUILD_DIR) $(PROG_NAME).z64
+.PHONY: clean
 
-.PHONY: all engine-check clean
+# Same dependency-file strategy used by the official libdragon example.
+ifneq ($(wildcard $(BUILD_DIR)),)
+  -include $(shell find $(BUILD_DIR) -name '*.d')
+endif

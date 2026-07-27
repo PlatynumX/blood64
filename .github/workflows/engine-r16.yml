@@ -1,0 +1,73 @@
+name: blood64-engine-r16
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  engine-mips-compile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch pinned real JFBuild/JFBlood sources
+        run: |
+          ./scripts/fetch-engine.sh
+          ./scripts/stage-engine.sh
+          cat engine/UPSTREAM.txt
+
+      - name: Install libdragon CLI
+        run: sudo npm install -g libdragon@latest
+
+      - name: Initialize libdragon
+        run: |
+          mkdir -p "$RUNNER_TEMP/ld"
+          cd "$RUNNER_TEMP/ld"
+          libdragon init
+
+      - name: Copy project into libdragon workspace
+        run: |
+          cp -a "$GITHUB_WORKSPACE"/. "$RUNNER_TEMP/ld/blood64/"
+
+      - name: Clean all previous build objects
+        run: |
+          cd "$RUNNER_TEMP/ld/blood64"
+          libdragon make -f Makefile.engine clean
+
+      - name: Build real Blood engine through the ROM dependency chain
+        id: compile
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          cd "$RUNNER_TEMP/ld/blood64"
+          libdragon make -f Makefile.engine V=1 -j2 2>&1 | tee "$GITHUB_WORKSPACE/engine-r16-build.log"
+
+      - name: Verify log really used the N64 compiler
+        if: always()
+        run: |
+          {
+            echo "=== N64 toolchain evidence ==="
+            grep -E 'N64 TOOLCHAIN CHECK PASSED|CC target:|CXX target:|mips64-elf-g(cc|\+\+)|-march=vr4300|-mabi=o64' \
+              engine-r16-build.log | head -80 || true
+          } | tee engine-r16-toolchain.txt
+
+      - name: Summarize remaining port errors
+        if: always()
+        run: |
+          python3 scripts/summarize-engine-errors.py engine-r16-build.log > engine-r16-summary.txt || true
+          cat engine-r16-summary.txt || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: blood64-engine-r16-build-report
+          if-no-files-found: error
+          path: |
+            engine-r16-build.log
+            engine-r16-summary.txt
+            engine-r16-toolchain.txt
+
+      - name: Fail if compiler/linker failed
+        if: steps.compile.outcome != 'success'
+        run: exit 1
