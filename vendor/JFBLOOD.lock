@@ -1,0 +1,4 @@
+JFBLOOD_REPO=https://github.com/MrHuu/jfblood-3ds.git
+JFBLOOD_COMMIT=987f1a184e11f8c1e201368500c332a1cb4f0031
+JFBUILD_EXPECTED_PREFIX=068a8cc
+PURPOSE="Blood64 engine/gameplay source baseline"

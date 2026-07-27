@@ -1,0 +1,71 @@
+V ?= 0
+BUILD_DIR := build-engine
+ENGINE := engine
+PROG_NAME := blood64-r3
+
+include $(N64_INST)/include/n64.mk
+
+CPPFLAGS += \
+	-In64 \
+	-I$(ENGINE)/jfbuild/include \
+	-I$(ENGINE)/blood/src \
+	-I$(ENGINE)/jfmact \
+	-I$(ENGINE)/jfaudiolib/include \
+	-include n64/blood64_config.h
+
+CFLAGS += -O2 -Wall -Wextra -fno-strict-aliasing -ffast-math
+CXXFLAGS += $(CFLAGS) -std=gnu++11 -fno-exceptions -fno-rtti -fpermissive
+
+JFBUILD_C := \
+	a-c asmprot cache1d compat crc32 defs engine kplib osd pragmas \
+	scriptfile textfont smalltextfont mmulti_null version
+
+BLOOD_CPP := \
+	actor ai aibat aibeast aiboneel aiburn aicaleb aicerber aicult aigarg aighost \
+	aigilbst aihand aihound aiinnoc aipod airat aispid aitchern aizomba aizombf \
+	asound blood callback choke common compat config db demo dude endgame eventq fire \
+	fx getopt gfx gib globals gui inifile iob levels loadsave map2d messages misc \
+	network palette player qav qheap sectorfx seq sfx sound trig triggers warp weapon \
+	controls credits gameutil menu mirrors osdcmd replace resource tile view version \
+	gamemenu screen
+
+JFBUILD_OBJS := $(addprefix $(BUILD_DIR)/jfbuild/,$(addsuffix .o,$(JFBUILD_C)))
+BLOOD_OBJS := $(addprefix $(BUILD_DIR)/blood/,$(addsuffix .o,$(BLOOD_CPP)))
+N64_OBJS := $(BUILD_DIR)/n64/platform_n64.o
+
+OBJS := $(JFBUILD_OBJS) $(BLOOD_OBJS) $(N64_OBJS)
+
+all: engine-check $(BUILD_DIR)/objects.stamp
+
+# r3's purpose is to force the real code through the N64 compiler and expose the
+# remaining platform/API deltas. A ROM link target is enabled once those symbols
+# are closed instead of hiding them behind fake stubs.
+engine-check:
+	@test -f $(ENGINE)/jfbuild/src/engine.c || { \
+	  echo "Run ./scripts/fetch-engine.sh && ./scripts/stage-engine.sh first"; exit 1; }
+	@test -f $(ENGINE)/blood/src/player.cpp
+	@echo "Real JFBuild + Blood source present."
+
+$(BUILD_DIR)/jfbuild/%.o: $(ENGINE)/jfbuild/src/%.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -MMD -MP -c -o $@ $<
+
+$(BUILD_DIR)/blood/%.o: $(ENGINE)/blood/src/%.cpp
+	@mkdir -p $(dir $@)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -MMD -MP -c -o $@ $<
+
+$(BUILD_DIR)/n64/%.o: n64/%.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -MMD -MP -c -o $@ $<
+
+$(BUILD_DIR)/objects.stamp: $(OBJS)
+	@mkdir -p $(dir $@)
+	@touch $@
+	@echo "All selected JFBuild/Blood units compiled for N64."
+
+-include $(OBJS:.o=.d)
+
+clean:
+	rm -rf $(BUILD_DIR)
+
+.PHONY: all engine-check clean

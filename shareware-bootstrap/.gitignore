@@ -1,0 +1,4 @@
+.shareware-tmp/
+# Keep generated shareware data out of source-control by default.
+shareware/*
+!shareware/.gitkeep
