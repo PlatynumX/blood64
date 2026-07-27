@@ -344,7 +344,11 @@ int DeleteSprite(int nSprite)
 {
 #ifdef POLYMER
 #if USE_POLYMOST && USE_OPENGL
+#if USE_POLYMOST && USE_OPENGL
     if (gPolymerLight[nSprite].lightptr != NULL && videoGetRenderMode() == REND_POLYMER)
+#else
+    if (0)
+#endif
 #else
     if (0)
 #endif
@@ -780,7 +784,9 @@ int dbLoadMap(const char *pPath, int *pX, int *pY, int *pZ, short *pAngle, short
 //#ifndef __AMIGA__
 #ifndef __3DS__
 #if USE_POLYMOST && USE_OPENGL
+#if USE_POLYMOST && USE_OPENGL
     memset(spriteext,0,kMaxSprites*sizeof(spriteext_t));
+#endif
 #endif
 #endif
 
