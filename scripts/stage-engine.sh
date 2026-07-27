@@ -14,6 +14,11 @@ mkdir -p "$OUT/jfbuild/src" "$OUT/jfbuild/include" "$OUT/blood/src" "$OUT/blood/
 # we are explicitly replacing on N64, not the engine itself.
 cp -a "$SRC/jfbuild/include/." "$OUT/jfbuild/include/"
 
+# JFBuild keeps several private/internal headers beside its source files.
+# Stage all of them so the N64 build sees the same header set as upstream.
+find "$SRC/jfbuild" -type f -name '*.h' -exec cp -f {} "$OUT/jfbuild/include/" \;
+
+
 # JFBuild also keeps required internal/generated headers outside include/.
 for h in a.h kplib.h; do
     H="$(find "$SRC/jfbuild" -name "$h" -print -quit)"
