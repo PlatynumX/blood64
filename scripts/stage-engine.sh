@@ -9,6 +9,7 @@ python3 "$ROOT/scripts/patch-defs.py" "$SRC/jfbuild/src/defs.c"
 
 python3 "$ROOT/scripts/patch-compat-endian.py" "$SRC/jfbuild/include/compat.h"
 python3 "$ROOT/scripts/patch-compat-dir-n64.py" "$SRC/jfbuild/src/compat.c"
+git apply --check "$ROOT/patches/kplib-n64.patch" >/dev/null 2>&1 && git apply "$ROOT/patches/kplib-n64.patch"
 rm -rf "$OUT"
 mkdir -p "$OUT/jfbuild/src" "$OUT/jfbuild/include" "$OUT/blood/src" "$OUT/blood/include"
 

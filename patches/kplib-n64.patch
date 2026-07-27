@@ -1,0 +1,103 @@
+--- a/vendor/jfblood/jfbuild/src/kplib.c
++++ b/vendor/jfblood/jfbuild/src/kplib.c
+@@ -59,7 +59,11 @@
+ 
+ #if !defined(_WIN32) && !defined(__DOS__)
+ #include <unistd.h>
++#if defined(N64) || defined(__N64__)
++#include <dir.h>
++#else
+ #include <dirent.h>
++#endif
+ typedef long long __int64;
+ static __inline int _lrotl (int i, int sh)
+ 	{ return((i>>(-sh))|(i<<sh)); }
+@@ -2160,8 +2164,10 @@
+ 
+ 	switch(pixbyte) //For PNGOUT
+ 	{
+-		case 1: coltype = 0; bitdepth = 8; palcol[0] = LSWAPIB(0xff000000);
+-				  for(i=1;i<256;i++) palcol[i] = palcol[i-1]+LSWAPIB(0x10101); break;
++		case 1:
++			coltype = 0; bitdepth = 8; palcol[0] = LSWAPIB(0xff000000);
++			for(i=1;i<256;i++) palcol[i] = palcol[i-1]+LSWAPIB(0x10101);
++			break;
+ 		case 2: case 3: coltype = 2; break;
+ 		case 4: coltype = 6; break;
+ 	}
+@@ -2915,6 +2921,12 @@
+ static char wildst[MAX_PATH] = "";
+ static SceUID hfind = -1;
+ static SceIoDirent findata;
++#elif defined(N64) || defined(__N64__)
++static char wildst[260] = "";
++static char n64findpath[260] = "";
++static int n64findactive = 0;
++static int n64findfirstpending = 0;
++static dir_t findata;
+ #else
+ static char wildst[260] = "";
+ static DIR *hfind = NULL;
+@@ -2929,6 +2941,10 @@
+ 		{ FindClose(hfind); hfind = INVALID_HANDLE_VALUE; }
+ #elif defined(VITA)
+ 	if (hfind >= 0) { sceIoDclose(hfind); hfind = -1; }
++#elif defined(N64) || defined(__N64__)
++	n64findactive = 0;
++	n64findfirstpending = 0;
++	n64findpath[0] = 0;
+ #else
+ 	if (hfind) { closedir(hfind); hfind = NULL; }
+ #endif
+@@ -2987,6 +3003,25 @@
+                 if (hfind < 0) { if (!kzhashbuf) return 0; srchstat = 2; continue; }
+             }
+             break;   // process srchstat == 1
++#elif defined(N64) || defined(__N64__)
++			if (!n64findactive)
++			{
++				char const *s = ".";
++				int ret;
++				if (wildstpathleng > 0) {
++					filnam[wildstpathleng] = 0;
++					s = filnam;
++				}
++				if (strlen(s) >= sizeof(n64findpath))
++					{ if (!kzhashbuf) return 0; srchstat = kzlastfnam; continue; }
++				strcpy(n64findpath,s);
++				ret = dir_findfirst(n64findpath,&findata);
++				if (ret < 0)
++					{ if (!kzhashbuf) return 0; srchstat = kzlastfnam; continue; }
++				n64findactive = 1;
++				n64findfirstpending = 1;
++			}
++			break;
+ #else
+ 			if (!hfind)
+ 			{
+@@ -3036,6 +3071,25 @@
+             if (!wildmatch(findata.d_name,&wildst[wildstpathleng])) continue;
+             strcpy(&filnam[i],findata.d_name);
+             if (S_ISDIR(findata.d_stat.st_mode)) strcat(&filnam[i],"/");
++#elif defined(N64) || defined(__N64__)
++			if (n64findfirstpending)
++				n64findfirstpending = 0;
++			else if (dir_findnext(n64findpath,&findata) < 0)
++			{
++				n64findactive = 0;
++				if (!kzhashbuf) return 0;
++				srchstat = kzlastfnam;
++				break;
++			}
++			i = wildstpathleng;
++			if (findata.d_type == DT_DIR)
++				{ if (findata.d_name[0] == '.' && !findata.d_name[1]) continue; }
++			else if (findata.d_type == DT_REG)
++				{ if (findata.d_name[0] == '.') continue; }
++			else continue;
++			if (!wildmatch(findata.d_name,&wildst[wildstpathleng])) continue;
++			strcpy(&filnam[i],findata.d_name);
++			if (findata.d_type == DT_DIR) strcat(&filnam[i],"/");
+ #else
+ 			if ((findata = readdir(hfind)) == NULL)
+ 				{ closedir(hfind); hfind = NULL; if (!kzhashbuf) return 0; srchstat = kzlastfnam; break; }
